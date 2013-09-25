@@ -37,7 +37,7 @@ class Glossary(object):
     'How far to <span title="Quebec" style="text-decoration:underline;">QC</span>?'
     """
     _template = r'\1<span title="{defn}" style="text-decoration:underline;">\2</span>\3'
-    _searcher = r'(\A|[\s\,]+)({term})(\Z|[\s\,]+)'
+    _searcher = r'(\A|[\s\,]+)({term})(\Z|[\s\,]+|&nbsp;|<br>)'
     def __init__(self, glossary='glossary.yml', template=None):
         """
         Creates a Glossary, a dictionary of terms that can annotate strings or HTML tables.
@@ -74,17 +74,17 @@ class Glossary(object):
         return txt
     def annotate(self, resultset):
         if hasattr(resultset, '_repr_html_'):
-            annotated_txt = resultset._repr_html_()
+            html = resultset._repr_html_()
         else:
-            annotated_txt = '<div style="font-family:monospace">%s</div>' % resultset.n
-        resultset.annotated = Annotated(self.replace(annotated_txt))
+            html = '<div style="font-family:monospace">%s</div>' % resultset.n
+            html = html.replace('  ', '&nbsp; ').replace('  ', '&nbsp; ') \
+                       .replace('\n', '<br>\n').replace('\t', '&nbsp;&nbsp;&nbsp; ')            
+        resultset.annotated = Annotated(self.replace(html))
         return resultset.annotated
             
 class Annotated(str):
     def _repr_html_(self):
-        spaced = self.replace('  ', '&nbsp; ').replace('  ', '&nbsp; ')
-        spaced = spaced.replace('\n', '<br>\n').replace('\t', '&nbsp;&nbsp;&nbsp; ')
-        return spaced
+        return self
                
 if __name__ == '__main__':
     doctest.testmod()
