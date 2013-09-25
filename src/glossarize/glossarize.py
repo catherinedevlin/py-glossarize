@@ -36,9 +36,9 @@ class DctFromTxtFile(dict):
         for block in self.splitter.split(txt):
             block = block.strip()
             if block:
-                term = block.splitlines()[0].strip()
+                term = block.splitlines()[0].strip().decode('utf8')
                 defn = "\n".join(line.strip() for line in block.splitlines()[1:])
-                self[term] = defn
+                self[term] = defn.decode('utf8')
             
 class Glossary(object):
     """
@@ -49,8 +49,14 @@ class Glossary(object):
     >>> g.annotate('How far to QC?')
     'How far to <span title="Quebec" style="text-decoration:underline;">QC</span>?'
     """
-    _template = r'\1<span title="{defn}" style="text-decoration:underline;">\2</span>\3'
-    _searcher = r'(\A|[\s\,>]+)({term})(\Z|[\s\,<]+|&nbsp;)'
+    _template = ur'\1<span title="{defn}" style="text-decoration:underline;">\2</span>\3'
+    _marker = '___TRANSLATE_ME___'
+    _marking_template = ur'\1\2%s\3' % _marker
+    _searcher = ur'(\A|[\s\,>]+)({term})(\Z|[\s\,<]+|&nbsp;)'
+    def _hidden_in_unicode(self, txt):
+        """
+        Weird maneuver to protect 
+        """
     def __init__(self, glossary='glossary.yml', template=None):
         """
         Creates a Glossary, a dictionary of terms that can annotate strings or HTML tables.
@@ -80,10 +86,20 @@ class Glossary(object):
                     self.glossary = DctFromTxtFile(open(self.glossary_file))
         self.template = template or self._template
     def replace(self, txt):
+        # First pass - mark translatable terms.
         for term in self.glossary:
-            txt = re.sub(self._searcher.format(term=term), 
-                         self.template.format(defn=self.glossary[term]),      
-                         txt, flags=re.IGNORECASE)
+            seek = self._searcher.format(term=term)
+            txt = re.sub(seek, self._marking_template, txt, flags=re.IGNORECASE)
+        # Second pass - we will only replace terms marked as translatable
+        # on the first pass.  This protects us from replacing terms that
+        # appear within the tooltips, creating nested tooltip syntax messes
+        for term in self.glossary:
+            seek = self._searcher.format(term=term+self._marker)
+            replacement = self.template.format(defn=self.glossary[term]
+                                               .replace(u'\\', u'\\\\')
+                                               .replace(u'"', u'\"'))
+            txt = re.sub(seek, replacement, txt, flags=re.IGNORECASE)
+        txt = txt.replace(self._marker, '')
         return txt
     def annotate(self, target):
         if hasattr(target, '_repr_html_'):
@@ -93,13 +109,13 @@ class Glossary(object):
                 html = target.n
             else:
                 html = str(target)
-            html = '<div style="font-family:monospace">%s</div>' % html
-            html = html.replace('  ', '&nbsp; ').replace('  ', '&nbsp; ') \
-                       .replace('\n', '<br>\n').replace('\t', '&nbsp;&nbsp;&nbsp; ')            
+            html = u'<div style="font-family:monospace">%s</div>' % html
+            html = html.replace(u'  ', u'&nbsp; ').replace(u'  ', u'&nbsp; ') \
+                       .replace(u'\n', u'<br>\n').replace(u'\t', u'&nbsp;&nbsp;&nbsp; ')            
         target.annotated = Annotated(self.replace(html))
         return target.annotated
             
-class Annotated(str):
+class Annotated(unicode):
     def _repr_html_(self):
         return self
                
