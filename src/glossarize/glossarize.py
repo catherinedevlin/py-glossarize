@@ -1,3 +1,16 @@
+"""
+Given a glossary, edit a string so that the definitions are provided.
+By default, inserts definitions as tooltips (HTML ``title`` attributes).
+
+Designed for use in IPython notebook; untried in other environments.
+
+Glossaries can be passed as dictionaries or names of .yml or .txt files.
+
+>>> from glossarize.glossarize import Glossary
+>>> g = Glossary({'java': 'old and busted', 'python': 'the new hotness'})
+>>> g.annotate('Shall the new project use Java or Python?')
+
+"""
 import os
 import re
 import yaml
@@ -37,7 +50,7 @@ class Glossary(object):
     'How far to <span title="Quebec" style="text-decoration:underline;">QC</span>?'
     """
     _template = r'\1<span title="{defn}" style="text-decoration:underline;">\2</span>\3'
-    _searcher = r'(\A|[\s\,]+)({term})(\Z|[\s\,]+|&nbsp;|<br>)'
+    _searcher = r'(\A|[\s\,>]+)({term})(\Z|[\s\,<]+|&nbsp;)'
     def __init__(self, glossary='glossary.yml', template=None):
         """
         Creates a Glossary, a dictionary of terms that can annotate strings or HTML tables.
@@ -72,15 +85,19 @@ class Glossary(object):
                          self.template.format(defn=self.glossary[term]),      
                          txt, flags=re.IGNORECASE)
         return txt
-    def annotate(self, resultset):
-        if hasattr(resultset, '_repr_html_'):
-            html = resultset._repr_html_()
+    def annotate(self, target):
+        if hasattr(target, '_repr_html_'):
+            html = target._repr_html_()
         else:
-            html = '<div style="font-family:monospace">%s</div>' % resultset.n
+            if hasattr(target, 'n'):
+                html = target.n
+            else:
+                html = str(target)
+            html = '<div style="font-family:monospace">%s</div>' % html
             html = html.replace('  ', '&nbsp; ').replace('  ', '&nbsp; ') \
                        .replace('\n', '<br>\n').replace('\t', '&nbsp;&nbsp;&nbsp; ')            
-        resultset.annotated = Annotated(self.replace(html))
-        return resultset.annotated
+        target.annotated = Annotated(self.replace(html))
+        return target.annotated
             
 class Annotated(str):
     def _repr_html_(self):
