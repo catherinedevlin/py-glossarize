@@ -11,6 +11,7 @@ Glossaries can be passed as dictionaries or names of .yml or .txt files.
 >>> g.annotate('Shall the new project use Java or Python?')
 
 """
+import json
 import os
 import re
 import yaml
@@ -66,6 +67,7 @@ class Glossary(object):
         glossary:  source of term definitions; can be
                      - a Python dictionary
                      - name of a YAML file to read
+                     - name of a JSON file to read
                      - name of a plain text file, with one line b/t 
                        a term and its definition, and two lines b/t
                        the definition and the next term
@@ -82,6 +84,8 @@ class Glossary(object):
             with open(self.glossary_file) as infile:
                 if self.glossary_file.endswith('.yml') or self.glossary_file.endswith('yaml'):
                     self.glossary = yaml.load(infile)
+                elif self.glossary_file.endswith('.json'):
+                    self.glossary = json.load(infile)
                 else:
                     self.glossary = DctFromTxtFile(open(self.glossary_file))
         self.template = template or self._template
